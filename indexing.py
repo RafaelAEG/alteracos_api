@@ -9,14 +9,23 @@ from typing import Dict
 from pydantic import RootModel
 
 from content.models.node_matrix import NodeMatrix
+from ninja import Schema
+from typing import List
 
+class BulkUpdateLocalIn(Schema):
+    node_ids: List[int]
+    new_local_value: str
+
+class BulkUpdateLocalResult(Schema):
+    updated_count: int
+    errors: List[str] 
 
 class NodeMatrixSerialized(Schema):
     id: int
     name: str
     key: str
     parent: Optional[str] = None
-    local: Optional[int]
+    local: str
 
     @classmethod
     def from_model(cls, node: NodeMatrix) -> "NodeMatrixSerialized":
@@ -25,7 +34,7 @@ class NodeMatrixSerialized(Schema):
             name=node.name,
             key=node.key,
             parent=node.parent.key if node.parent else None,
-            local=node.local if node.local is not None else 0,
+            local=node.local,
 
         )
 
@@ -33,7 +42,7 @@ class NodeMatrixSerialized(Schema):
 class InsertTreeWorkflowInSubTree(Schema):
     skippable: Optional[bool] = False
     children: Optional[Dict[str, InsertTreeWorkflowInSubTree]] = None
-    local: Optional[int]
+    local: str
 
     class Config:
         extra = "allow"
