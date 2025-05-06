@@ -14,14 +14,14 @@ def to_subtree_model(data: dict) -> dict[str, InsertTreeWorkflowInSubTree]:
     result = {}
     for k, v in data.items():
         children = v.get("children", {})
+        # Usa get com default string
+        local_val = v.get("local", None) # Pega string ou None
         result[k] = InsertTreeWorkflowInSubTree(
             skippable=v.get("skippable", False),
-            local=v.get("local", 0),
+            local=local_val, # Passa a string ou None
             children=to_subtree_model(children) if children else {}
         )
     return result
-
-
 
 @activity.defn
 def insert_on_tree_from_dict(
@@ -34,22 +34,33 @@ def insert_on_tree_from_dict(
         total_nodes_processed=0
     )
 
-    data = to_subtree_model(data)
+    #data = to_subtree_model(data)
     parent = get_node_by_id(_parent.id)
 
-    for node_name, subtree_model in data.items():
+    for node_name, subtree_model in data.items(): # subtree_model.local é Optional[str]
         children = subtree_model.children if subtree_model.children is not None else {}
         normalized = normalize_value(node_name)
-        key = normalized
+        key = normalized # Atenção: A geração da key no modelo NodeMatrix usa apenas o nome.
+
+        # Prepara os defaults para update_or_create
+        defaults = {
+            'name': node_name,
+            'parent': parent,
+            'skippable': subtree_model.skippable,
+            # 'local': getattr(subtree_model, 'local', 0), -> Alterado
+        }
+        # Adiciona 'local' aos defaults APENAS se foi fornecido no input.
+        # Caso contrário, o default do modelo será usado na criação.
+        # Se o nó já existe, só atualiza 'local' se um novo valor foi passado.
+        if subtree_model.local is not None:
+             defaults['local'] = subtree_model.local
+
         node, created = NodeMatrix.objects.update_or_create(
-            key=key,
-            defaults={
-                'name': node_name,
-                'parent': parent,
-                'skippable': subtree_model.skippable,
-                'local': getattr(subtree_model, 'local', 0),
-            }
+            key=key, # CUIDADO: A chave ainda depende só do nome+random? Isso pode causar colisões se nomes se repetem com 'local' diferente? Revisar lógica da key se necessário.
+            defaults=defaults
         )
+
+        
         result.total_nodes_processed += 1
         if created:
             result.nodes_inserted += 1
