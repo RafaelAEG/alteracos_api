@@ -12,9 +12,24 @@ from content.types.indexing import InsertTreeResultSchema, InsertTreePayload, Ro
     NodeMatrixSerialized, NodePathOrdered
 from content.types.workflow import WrapWorkflowResponse
 from content.services.matrix_svc import get_path_to_node_by_name, get_descendants_at_same_level, get_root_nodes
+from content.types.indexing import BulkUpdateLocalIn, BulkUpdateLocalResult # Importar os novos tipos
+from content.services.matrix_svc.update_node_local import bulk_update_node_local # Importar a nova função
+
 
 router = Router()
 
+
+
+@router.post("nodes/bulk-update-local", response={200: BulkUpdateLocalResult, 400: BulkUpdateLocalResult}) # Define respostas
+def bulk_update_local_endpoint(request, payload: BulkUpdateLocalIn):
+    if not payload.node_ids:
+         # Retorna erro se a lista de IDs for vazia
+         return 400, BulkUpdateLocalResult(updated_count=0, errors=["No node IDs provided."])
+
+    updated_count, errors = bulk_update_node_local(payload.node_ids, payload.new_local_value)
+
+    # Retorna sucesso mesmo se alguns nós não foram encontrados (informado nos erros)
+    return 200, BulkUpdateLocalResult(updated_count=updated_count, errors=errors)
 
 @router.post("tree", response=WrapWorkflowResponse[InsertTreeResultSchema])
 def create_or_update_tree(request, payload: InsertTreePayload) -> WrapWorkflowResponse[InsertTreeResultSchema]:
@@ -59,9 +74,7 @@ def get_closest_descendants(request, node_id: int):
 
 @router.get("nodes/roots", response=List[NodeMatrixSerialized])
 def get_available_trees(request):
-    all_roots = get_root_nodes()
-    filtered = [node for node in all_roots if node.local == 3]
-    return [NodeMatrixSerialized.from_model(node) for node in filtered]
+    return get_root_nodes()
 
 
 @router.delete("root/{node_id}")
