@@ -26,7 +26,13 @@ class NodeMatrix(MPTTModel):
     description = models.TextField(blank=True, null=False)
     skippable = models.BooleanField(default=False)
     key = models.CharField(max_length=255, unique=True, blank=True)
-    local = models.IntegerField(default=0)
+    local = models.CharField(
+        max_length=100,   # Defina um tamanho máximo apropriado
+        default="nenhum", # Defina um valor padrão de texto (ex: "simulie")
+        blank=True,       # Permite string vazia no admin/forms
+        null=False,       # Não permite NULL no banco
+        db_index=True     # Adiciona índice se for filtrar por este campo frequentemente
+    )
 
     class MPTTMeta:
         order_insertion_by: ClassVar[list[str]] = ["name"]
